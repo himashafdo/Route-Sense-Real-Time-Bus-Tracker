@@ -1,0 +1,12 @@
+Output: NC Drill Files
+Type  : NC Drill
+From  : Project [RouteSense.PrjPcb]
+   Generated File[TX_Node.TXT]
+   Generated File[TX_Node.LDP]
+   Generated File[TX_Node.DRR]
+
+
+Files Generated   : 3
+Documents Printed : 0
+
+Finished Output Generation At 12:37:40 PM On 11/15/2026
