@@ -2,8 +2,6 @@
  * RouteSense - bus node (ESP32-C3 SuperMini + SX1278 + MPU6050 + NEO-M8N)
  * Packet: id,seq,lat,lon,ax,ay,az,motion   (lat/lon = 0,0 when no GPS fix)
  *
- * Library: "TinyGPSPlus" by Mikal Hart (Arduino Library Manager)
- * Board setting: USB CDC On Boot = Enabled
  */
 #include <SPI.h>
 #include <Wire.h>
@@ -12,7 +10,7 @@
 
 #define NODE_ID 1
 #define TX_INTERVAL_MS 1000
-#define TX_JITTER_MS   100     // actual gap = TX_INTERVAL_MS ± TX_JITTER_MS
+#define TX_JITTER_MS   100    
 
 #define L_SCK  4
 #define L_MISO 6
@@ -23,15 +21,15 @@
 #define SDA_PIN 2
 #define SCL_PIN 1
 #define MPU_ADDR 0x68
-#define GPS_RX 20   // ESP RX  <- GPS TX
-#define GPS_TX 21   // ESP TX  -> GPS RX
+#define GPS_RX 20  
+#define GPS_TX 21   
 
 // Motion detection
-#define SAMPLE_MS        20      // 50 Hz IMU sampling
-#define ACC_RMS_THRESH   0.02    // g, dynamic accel RMS over 1 s window
-#define ACC_PEAK_THRESH  0.06    // g, dynamic accel peak over 1 s window
-#define GYRO_THRESH      3.0     // deg/s, rotation peak over 1 s window
-#define MOTION_HOLD_MS   3000    // keep motion=1 this long after last trigger
+#define SAMPLE_MS        20     
+#define ACC_RMS_THRESH   0.02    
+#define ACC_PEAK_THRESH  0.06    
+#define GYRO_THRESH      3.0     
+#define MOTION_HOLD_MS   3000    
 
 TinyGPSPlus gps;
 uint32_t seq = 0;
@@ -56,21 +54,21 @@ void mpuWrite(uint8_t reg, uint8_t val) {
 
 void mpuInit() {
   Wire.begin(SDA_PIN, SCL_PIN);
-  mpuWrite(0x6B, 0x00);   // PWR_MGMT_1: wake up
-  mpuWrite(0x1A, 0x03);   // CONFIG: DLPF ~44 Hz (cuts noise)
-  mpuWrite(0x1B, 0x00);   // GYRO_CONFIG: ±250 deg/s (most sensitive)
-  mpuWrite(0x1C, 0x00);   // ACCEL_CONFIG: ±2g (most sensitive)
+  mpuWrite(0x6B, 0x00);   
+  mpuWrite(0x1A, 0x03);   
+  mpuWrite(0x1B, 0x00);   
+  mpuWrite(0x1C, 0x00);   
 }
 
 bool mpuRead(float &ax, float &ay, float &az) {
   Wire.beginTransmission(MPU_ADDR);
-  Wire.write(0x3B);   // ACCEL_XOUT_H
+  Wire.write(0x3B);  
   if (Wire.endTransmission(false) != 0) return false;
   if (Wire.requestFrom(MPU_ADDR, 6) != 6) return false;
   int16_t x = (Wire.read() << 8) | Wire.read();
   int16_t y = (Wire.read() << 8) | Wire.read();
   int16_t z = (Wire.read() << 8) | Wire.read();
-  ax = x / 16384.0;   // g (±2g range)
+  ax = x / 16384.0;   
   ay = y / 16384.0;
   az = z / 16384.0;
   return true;
@@ -78,7 +76,7 @@ bool mpuRead(float &ax, float &ay, float &az) {
 
 bool mpuReadGyro(float &wx, float &wy, float &wz) {
   Wire.beginTransmission(MPU_ADDR);
-  Wire.write(0x43);   // GYRO_XOUT_H
+  Wire.write(0x43);   
   if (Wire.endTransmission(false) != 0) return false;
   if (Wire.requestFrom(MPU_ADDR, 6) != 6) return false;
   int16_t x = (Wire.read() << 8) | Wire.read();
@@ -90,7 +88,7 @@ bool mpuReadGyro(float &wx, float &wy, float &wz) {
   return true;
 }
 
-// Called every loop; samples IMU at 50 Hz and accumulates window stats
+
 void sampleMotion() {
   static uint32_t lastS = 0;
   if (millis() - lastS < SAMPLE_MS) return;
@@ -103,7 +101,7 @@ void sampleMotion() {
     if (!gInit) {
       gX = ax; gY = ay; gZ = az; gInit = true;
     } else {
-      const float k = 0.02;            // gravity tracking (~1 s time constant)
+      const float k = 0.02;            
       gX += k * (ax - gX);
       gY += k * (ay - gY);
       gZ += k * (az - gZ);
@@ -121,7 +119,7 @@ void sampleMotion() {
     if (!bInit) {
       bX = wx; bY = wy; bZ = wz; bInit = true;
     } else {
-      const float kb = 0.002;          // gyro bias tracking (~10 s time constant)
+      const float kb = 0.002;        
       bX += kb * (wx - bX);
       bY += kb * (wy - bY);
       bZ += kb * (wz - bZ);
@@ -134,11 +132,11 @@ void sampleMotion() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);   // don't stall when running on external power with no USB
+  Serial.setTxTimeoutMs(0); 
   mpuInit();
 
   Serial1.setRxBufferSize(1024);
-  Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);  // NEO-M8N default 9600 baud
+  Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);  
 
   SPI.begin(L_SCK, L_MISO, L_MOSI, L_NSS);
   LoRa.setPins(L_NSS, L_RST, L_DIO0);
@@ -152,7 +150,7 @@ void setup() {
 }
 
 void loop() {
-  // Feed GPS parser continuously - never block here
+
   while (Serial1.available()) gps.encode(Serial1.read());
 
   sampleMotion();
@@ -161,7 +159,7 @@ void loop() {
   static uint32_t txGap = TX_INTERVAL_MS;
   if (millis() - lastTx < txGap) return;
   lastTx = millis();
-  txGap = TX_INTERVAL_MS - TX_JITTER_MS + random(0, 2 * TX_JITTER_MS + 1);  // 900-1100 ms
+  txGap = TX_INTERVAL_MS - TX_JITTER_MS + random(0, 2 * TX_JITTER_MS + 1);  
 
   float ax = 0, ay = 0, az = 0;
   int motion = 0;
